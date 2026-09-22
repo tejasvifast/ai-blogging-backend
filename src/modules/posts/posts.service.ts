@@ -3,6 +3,7 @@ import { prisma } from '../../config/database'
 import { logger } from '../../config/logger'
 import { NotFoundError } from '../../utils/errors'
 import { toSlug, readingTimeMinutes, deriveExcerpt } from '../../utils/text'
+import { sanitizeHtml } from '../../utils/sanitize'
 import type { Paginated } from '../../utils/apiResponse'
 import { paginationMeta } from '../../utils/apiResponse'
 import { triggerRevalidation, postPaths } from '../revalidation/revalidation.service'
@@ -175,21 +176,23 @@ export async function createPost(
 ): Promise<PostWithRelations> {
   const slug = await uniqueSlug(input.slug ?? input.title)
   const { publishedAt, scheduledFor } = timing(input.status, input.scheduledFor ?? null)
+  // Strip scripts/handlers before storage — the public renderer trusts stored HTML.
+  const content = sanitizeHtml(input.content)
 
   const post = await prisma.post.create({
     data: {
       title: input.title,
       slug,
-      content: input.content,
-      excerpt: input.excerpt ?? deriveExcerpt(input.content),
+      content,
+      excerpt: input.excerpt ?? deriveExcerpt(content),
       coverImage: input.coverImage ?? null,
       coverImageAlt: input.coverImageAlt ?? null,
       metaTitle: input.metaTitle ?? input.title.slice(0, 70),
-      metaDescription: input.metaDescription ?? deriveExcerpt(input.content, 160),
+      metaDescription: input.metaDescription ?? deriveExcerpt(content, 160),
       keywords: input.keywords,
       status: input.status,
       isFeatured: input.isFeatured,
-      readingTime: readingTimeMinutes(input.content),
+      readingTime: readingTimeMinutes(content),
       publishedAt,
       scheduledFor,
       author: { connect: { id: authorId } },
@@ -216,8 +219,9 @@ export async function updatePost(id: string, input: UpdatePostInput): Promise<Po
 
   if (input.title !== undefined) data.title = input.title
   if (input.content !== undefined) {
-    data.content = input.content
-    data.readingTime = readingTimeMinutes(input.content)
+    const content = sanitizeHtml(input.content)
+    data.content = content
+    data.readingTime = readingTimeMinutes(content)
   }
   if (input.excerpt !== undefined) data.excerpt = input.excerpt
   if (input.coverImage !== undefined) data.coverImage = input.coverImage

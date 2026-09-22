@@ -8,6 +8,10 @@ module.exports = {
   collectCoverageFrom: ['src/**/*.ts', '!src/**/*.d.ts', '!src/server.ts'],
   coverageDirectory: 'coverage',
   moduleFileExtensions: ['ts', 'js', 'json'],
+  moduleNameMapper: {
+    // isomorphic-dompurify is ESM-only; stub it for the CJS ts-jest transform.
+    '^isomorphic-dompurify$': '<rootDir>/tests/mocks/isomorphic-dompurify.ts',
+  },
   setupFilesAfterEnv: ['<rootDir>/tests/setup.ts'],
   transform: {
     '^.+\\.ts$': ['ts-jest', { tsconfig: 'tsconfig.json' }],
