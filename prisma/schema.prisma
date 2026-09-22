@@ -1,0 +1,177 @@
+// ─────────────────────────────────────────────────────────────
+// AI Blogging Backend — Prisma schema
+// ─────────────────────────────────────────────────────────────
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ── Enums ──────────────────────────────────────────────────────
+
+enum Role {
+  ADMIN
+  EDITOR
+}
+
+enum Provider {
+  CREDENTIALS
+  GOOGLE
+}
+
+enum PostStatus {
+  DRAFT
+  SCHEDULED
+  PUBLISHED
+  ARCHIVED
+}
+
+// ── Models ─────────────────────────────────────────────────────
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  password      String? // null for Google-only users
+  name          String
+  avatar        String?
+  bio           String?  @db.Text
+  role          Role     @default(ADMIN)
+  provider      Provider @default(CREDENTIALS)
+  googleId      String?  @unique
+  emailVerified Boolean  @default(false)
+
+  posts         Post[]
+  refreshTokens RefreshToken[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+}
+
+model Post {
+  id            String  @id @default(cuid())
+  title         String
+  slug          String  @unique
+  excerpt       String? @db.Text
+  content       String  @db.Text
+  coverImage    String?
+  coverImageAlt String?
+
+  // SEO metadata
+  metaTitle       String?
+  metaDescription String?
+  keywords        String[]
+
+  status        PostStatus @default(DRAFT)
+  isFeatured    Boolean    @default(false)
+  isAIGenerated Boolean    @default(false)
+  aiProvider    String?
+  aiModel       String?
+
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id])
+
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id])
+
+  tags Tag[] @relation("PostTags")
+
+  views       Int  @default(0)
+  readingTime Int?
+
+  publishedAt  DateTime?
+  scheduledFor DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([slug])
+  @@index([status, publishedAt])
+  @@index([categoryId, status])
+  @@index([scheduledFor])
+}
+
+model Category {
+  id          String  @id @default(cuid())
+  name        String  @unique
+  slug        String  @unique
+  description String?
+  icon        String?
+  color       String?
+
+  posts Post[]
+
+  createdAt DateTime @default(now())
+
+  @@index([slug])
+}
+
+model Tag {
+  id    String @id @default(cuid())
+  name  String @unique
+  slug  String @unique
+  posts Post[] @relation("PostTags")
+
+  @@index([slug])
+}
+
+model CronJob {
+  id             String    @id @default(cuid())
+  name           String    @unique
+  description    String?
+  cronExpression String
+  enabled        Boolean   @default(true)
+  config         Json
+  lastRunAt      DateTime?
+  lastRunStatus  String?
+  nextRunAt      DateTime?
+  runCount       Int       @default(0)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+model GenerationLog {
+  id               String   @id @default(cuid())
+  postId           String?
+  cronJobId        String?
+  status           String
+  provider         String
+  model            String
+  promptTokens     Int?
+  completionTokens Int?
+  totalTokens      Int?
+  cost             Float?
+  durationMs       Int?
+  error            String?  @db.Text
+  metadata         Json?
+  createdAt        DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([status])
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  revoked   Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Newsletter {
+  id          String   @id @default(cuid())
+  email       String   @unique
+  verified    Boolean  @default(false)
+  verifyToken String?
+  unsubToken  String   @unique
+  createdAt   DateTime @default(now())
+}

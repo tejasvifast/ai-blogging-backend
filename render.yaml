@@ -1,0 +1,102 @@
+# Render Blueprint. Uses external Neon (Postgres) + Upstash (Redis) — set
+# DATABASE_URL / REDIS_URL and secrets in the Render dashboard (sync: false).
+services:
+  - type: web
+    name: ai-blog-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: '4000'
+      - key: RUN_MIGRATIONS
+        value: 'true'
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: API_URL
+        sync: false
+      - key: JWT_ACCESS_SECRET
+        sync: false
+      - key: JWT_REFRESH_SECRET
+        sync: false
+      - key: COOKIE_DOMAIN
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: ADMIN_EMAILS
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: DEFAULT_AI_PROVIDER
+        value: anthropic
+      - key: DEFAULT_AI_MODEL
+        value: claude-haiku-4-5-20251001
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: UNSPLASH_ACCESS_KEY
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: FROM_EMAIL
+        sync: false
+      - key: ALLOWED_ORIGINS
+        sync: false
+      - key: REVALIDATE_SECRET
+        sync: false
+
+  - type: worker
+    name: ai-blog-worker
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerCommand: node dist/queues/worker.js
+    plan: starter
+    envVars:
+      # Worker must NOT run migrations (the web service owns them).
+      - key: RUN_MIGRATIONS
+        value: 'false'
+      - key: NODE_ENV
+        value: production
+      # The worker imports the same env module and validates the FULL schema at
+      # boot. Easiest path: put every var in a Render Environment Group and link
+      # it to BOTH services. These are the required keys it will fail without.
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: API_URL
+        sync: false
+      - key: JWT_ACCESS_SECRET
+        sync: false
+      - key: JWT_REFRESH_SECRET
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: REVALIDATE_SECRET
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: DEFAULT_AI_PROVIDER
+        value: anthropic
+      - key: DEFAULT_AI_MODEL
+        value: claude-haiku-4-5-20251001
